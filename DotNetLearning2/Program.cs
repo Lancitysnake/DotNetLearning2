@@ -1,14 +1,6 @@
 ﻿
 class Program
-{   
-
-    public class SomethingForGitRefresh
-    {
-        string someString;
-        int someInt;
-        double someDouble;
-        byte[] someBytes;
-    }
+{
     public class Unit
     {
         public string description;
