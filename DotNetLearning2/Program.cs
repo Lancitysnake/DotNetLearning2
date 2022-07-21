@@ -1,6 +1,14 @@
 ﻿
 class Program
-{
+{   
+
+    public class SomethingForGitRefresh
+    {
+        string someString;
+        int someInt;
+        double someDouble;
+        byte[] someBytes;
+    }
     public class Unit
     {
         public string description;
@@ -46,9 +54,12 @@ class Program
         Console.WriteLine($"Общий объем резервуаров: {totalVolume}");
 
         var searching = Console.ReadLine();
-        FindInfo(factories, units, tanks, searching); //Поиск информации по описанию объекта
+        // Поиск информации по описанию объекта //
+        FindInfo(factories, units, tanks, searching); 
+        Console.WriteLine();
     }
-    public static void FindInfo(Factory[] factories, Unit[] units, Tank[] tanks, string description)
+   
+    public static void FindInfo(Factory[] factories, Unit[] units, Tank[] tanks, string description)  // Поиск информации по описанию объекта //
     {
         for (int i = 0; i < factories.Length; i++)
             if (factories[i].description == description)
@@ -107,7 +118,7 @@ class Program
             }
         }
 
-    } //Поиск информации по описанию объекта
+    } 
     // реализуйте этот метод, чтобы он возвращал массив резервуаров, согласно приложенным таблицам
     // можно использовать создание объектов прямо в C# коде через new, или читать из файла (на своё усмотрение)
 
