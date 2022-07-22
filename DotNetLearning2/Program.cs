@@ -1,4 +1,6 @@
-﻿
+﻿using System.Text.Json
+
+
 class Program
 {
     public class Unit
@@ -49,6 +51,13 @@ class Program
         // Поиск информации по описанию объекта //
         FindInfo(factories, units, tanks, searching); 
         Console.WriteLine();
+
+        using (FileStream fs = new FileStream("objects.json", FileMode.OpenOrCreate))
+        {
+             
+             await JsonSerializer.SerializeAsync<Tank[]>(fs, tanks);
+             Console.WriteLine("Data has been saved to file");
+        }
     }
    
     public static void FindInfo(Factory[] factories, Unit[] units, Tank[] tanks, string description)  // Поиск информации по описанию объекта //
