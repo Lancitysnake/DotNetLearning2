@@ -4,6 +4,7 @@ using System.Net;
 using System.Text.Json.Serialization;
 using System.Text;
 using System.Collections.Generic;
+using OfficeOpenXml;
 
 
 
@@ -11,6 +12,7 @@ using System.Collections.Generic;
 
 class Program
 {
+
     public class AllObjects
     {
         public string Description { get; set; }
@@ -49,6 +51,8 @@ class Program
     }
     static void Main(string[] args)
     {
+        string pathAllObjects = "C:/Users/Alex/source/repos/Lancitysnake/DotNetLearning2/allObjects.json";
+        string pathNamesOfObjects = "C:/Users/Alex/source/repos/Lancitysnake/DotNetLearning2/NamesOfObjects.json";
         var allObjects = GetAllObjects();
 
         var tanks = GetTanks();
@@ -66,68 +70,237 @@ class Program
 
         var totalVolume = GetTotalVolume(tanks);
         Console.WriteLine($"Общий объем резервуаров: {totalVolume}");
+        var fb = new WebClient() { Encoding = Encoding.UTF8 }.DownloadString(pathNamesOfObjects);
+        var ObjectsNames = JsonSerializer.Deserialize<List<string>>(fb);
+       
 
-        List<string> ObjectsNames = new List<string>
-             {
-               "НПЗ№1",
-               "НПЗ№2",
-               "АВТ-10",
-               "АВТ-6",
-               "ГФУ-2",
-               "Резервуар 256",
-               "Резервуар 57",
-               "Резервуар 35",
-               "Дополнительный резервуар 24",
-               "Резервуар 2",
-               "Резервуар 1",
-               "Надземный - вертикальный",
-               "Надземный - горизонтальный",
-               "Подземный - двустенный",
-               "Подводный",
-               "Газофракционирующая установка",
-               "Атмосферно-вакуумная трубчатка",
-               "Первый нефтеперерабатывающий завод",
-               "Второй нефтеперерабатывающий завод"
-             };
-
-        /* var searching = Console.ReadLine();
-         // Поиск информации по описанию объекта //
-         FindInfo(factories, units, tanks, searching); 
-         Console.WriteLine();*/
         Console.WriteLine($"{tanks[0].Name}, {tanks[0].Description}, {tanks[0].MaxVolume}");
+
+        
+        int indexOfObject;
+        string nameForSearch;
         var options = new JsonSerializerOptions
         {
             WriteIndented = true,
             IgnoreReadOnlyProperties = true
         };
-        string jsonAllObjects = JsonSerializer.Serialize(allObjects, options);
+        
+
         while (true)
         {
-            Console.WriteLine("\nВведите название или описание искомого объекта, либо Stop, что бы прекратить поиск :");
-            string search = Console.ReadLine();
-            if (ObjectsNames.Contains(search))
+
+            Console.WriteLine("\nВведите номер команды:" +
+            "\n 1 - Редактировать объект." +
+            "\n 2 - Удалить объект." +
+            "\n 3 - Найти объект." +
+            "\n 4 - Добавить новый." +
+            "\n 5 - Список всех объектов." +
+            "\n 6 - Выход из программы.");
+
+            string nextUserAnswer = Console.ReadLine();
+            if (nextUserAnswer == "5")
+                foreach (var obj in ObjectsNames)
+                    Console.WriteLine("\n" + obj);
+
+            if (nextUserAnswer == "3")
             {
-                string pathAllObjects = "C:/Users/Alex/source/repos/Lancitysnake/DotNetLearning2/allObjects.json";
-                File.WriteAllText(pathAllObjects, jsonAllObjects);
-                JsonSearch(pathAllObjects, search);
+                Console.WriteLine("Введите название объекта :");
+                nameForSearch = Console.ReadLine();
+                if (ObjectsNames.Contains(nameForSearch))
+                    indexOfObject = JsonSearchAndPrint(pathAllObjects, nameForSearch);
+                else Console.WriteLine("\nДанный объект не найден, убедитесь в правильности написания названия объекта!");
             }
-            else if (search == "stop" || search == "Stop")
-                break;
-            else Console.WriteLine("\nДанный объект не найден, убедитесь в правильности написания названия объекта!");
+
+            else if (nextUserAnswer == "2")
+            {
+                Console.WriteLine("Введите название объекта :");
+                nameForSearch = Console.ReadLine();
+                if (ObjectsNames.Contains(nameForSearch))
+                {
+                    indexOfObject = JsonSearch(pathAllObjects, nameForSearch);
+                    ObjectsNames.Remove(nameForSearch);
+                    DeleteObject(allObjects, indexOfObject);
+                }
+                else Console.WriteLine("\nДанный объект не найден, убедитесь в правильности написания названия объекта!");
+            }
+            else if (nextUserAnswer == "6")
+                return;
+            else if (nextUserAnswer == "4")
+            {
+                WhatTheObjectUNeed(allObjects);
+                ObjectsNames.Add(allObjects[allObjects.Count - 1].Name);
+
+            }
+            else if (nextUserAnswer == "1")
+            {
+                Console.WriteLine("Введите название объекта :");
+                nameForSearch = Console.ReadLine();
+                if (ObjectsNames.Contains(nameForSearch))
+                {
+                    indexOfObject = JsonSearch(pathAllObjects, nameForSearch);
+                    if (allObjects[indexOfObject].FactoryId == 0 && allObjects[indexOfObject].UnitId == 0)
+                        UpdateFactory(allObjects, indexOfObject,ObjectsNames);
+                    else if (allObjects[indexOfObject].FactoryId != 0)
+                        UpdateUnit(allObjects, indexOfObject, ObjectsNames);
+                    else
+                        UpdateTank(allObjects, indexOfObject, ObjectsNames);
+                }
+                else
+                    Console.WriteLine("\nДанный объект не найден, убедитесь в правильности написания названия объекта!");
+            }
+
+
+        }
+        string jsonAllObjects = JsonSerializer.Serialize(allObjects, options);
+        string jsonNamesOfObjects = JsonSerializer.Serialize(ObjectsNames, options);
+        File.WriteAllText(pathAllObjects, jsonAllObjects);
+        File.WriteAllText(pathNamesOfObjects, jsonNamesOfObjects);
+
+
+    }
+    public static void WhatTheObjectUNeed(List<AllObjects> allObjects)
+    {
+        int countOfObjects = allObjects.Count;
+        string name, description;
+        int id, factoryId, unitId, volume, maxVolume;
+        Console.WriteLine("\n Выберите тип объекта :" +
+            "\n1 - Завод / Factory" +
+            "\n2 - Установка / Unit" +
+            "\n3 - Резервуар / Tank");
+        string answer = (Console.ReadLine());
+
+        Console.WriteLine("\nВведите название : ");
+        name = Console.ReadLine();
+        Console.WriteLine("\nВведите описание : ");
+        description = Console.ReadLine();
+        Console.WriteLine("\nВведите идентификационный номер (цифры!) : ");
+        id = int.Parse(Console.ReadLine());
+
+        if (answer == "1")
+        {
+            CreateNewFactory(description, name, id, allObjects);
+            PrintObjectCreated(countOfObjects, allObjects);
+        }
+        else if (answer == "2")
+        {
+            Console.WriteLine("\nВведите идентификационный номер завода, которому принадлежит данная утсановка : ");
+            factoryId = int.Parse(Console.ReadLine());
+            CreateNewUnit(description, name, id, factoryId, allObjects);
+            PrintObjectCreated(countOfObjects, allObjects);
+        }
+        else
+        {
+            Console.WriteLine("\nВведите идентификационный номер установки, которой принадлежит данный резервуар :");
+            unitId = int.Parse(Console.ReadLine());
+            Console.WriteLine("\nВведите максимальный объем резервуара : ");
+            maxVolume = int.Parse(Console.ReadLine());
+            Console.WriteLine("\nВведите текущую наполненность резервуара :");
+            volume = int.Parse(Console.ReadLine());
+            CreateNewTank(description, name, id, allObjects, volume, maxVolume, unitId);
+            PrintObjectCreated(countOfObjects, allObjects);
         }
 
     }
 
-
-
-    public static void JsonSearch(string path, string search)
+    public static void CreateNewFactory(string description, string name, int id, List<AllObjects> allObjects)
+        => allObjects.Add(new AllObjects { Description = description, Name = name, Id = id });
+    public static void CreateNewUnit(string description, string name, int id, int factoryId, List<AllObjects> allObjects)
+        => allObjects.Add(new AllObjects { Description = description, Name = name, Id = id, FactoryId = factoryId });
+    public static void CreateNewTank(string description, string name, int id, List<AllObjects> allObjects, int volume, int maxVolume, int unitId)
+        => allObjects.Add(new AllObjects { Description = description, Name = name, Id = id, Volume = volume, MaxVolume = maxVolume, FactoryId = unitId });
+    public static void PrintObjectCreated(int count, List<AllObjects> allObjects)
     {
+        if (count < allObjects.Count)
+            Console.WriteLine("\nОбъект успешно добавлен");
+    }
+
+    public static void DeleteObject(List<AllObjects> allObjects, int numb) => allObjects.Remove(allObjects[numb]);
+
+
+
+    public static void UpdateFactory(List<AllObjects> objects, int numb, List<string>Names)
+    {
+        Console.WriteLine("\nВведите новое название :");
+        string newName = Console.ReadLine();
+        if (newName != null && newName != "")
+        {
+            int nameNumb = Names.IndexOf(objects[numb].Name);
+            Names[nameNumb] = newName;
+            objects[numb].Name = newName;
+        }
+        Console.WriteLine("\nВведите новое описание :");
+        string newDescription = Console.ReadLine();
+        if (newDescription != null && newDescription != "")
+            objects[numb].Description = newDescription;
+        Console.WriteLine($"\nВведите новый идентификационный номер, если номер не изменяется введите старый ({objects[numb].Id}");
+        objects[numb].Id = int.Parse(Console.ReadLine());
+        Console.WriteLine("\nДанные успешно обновлены!");
+    }
+
+    public static void UpdateUnit(List<AllObjects> objects, int numb, List<string> Names)
+    {
+        Console.WriteLine("\nВведите новое название :");
+        string newName = Console.ReadLine();
+        if (newName != null && newName != "")
+            objects[numb].Name = newName;
+        Console.WriteLine("\nВведите новое описание :");
+        string newDescription = Console.ReadLine();
+        if (newDescription != null && newDescription != "")
+            objects[numb].Description = newDescription;
+        Console.WriteLine($"\nВведите новый идентификационный номер, если номер не изменяется, введите текущий ({objects[numb].Id})");
+        objects[numb].Id = int.Parse(Console.ReadLine());
+        Console.WriteLine($"\nВведите новый идентификационный номер завода, к которому относится данная установка," +
+            $"\n если номер не изменяется, введите текущий ({objects[numb].FactoryId})");
+        objects[numb].FactoryId = int.Parse(Console.ReadLine());
+        Console.WriteLine("\nДанные успешно обновлены!");
+    }
+
+    public static void UpdateTank(List<AllObjects> objects, int numb, List<string> Names)
+    {
+        Console.WriteLine("\nВведите новое название :");
+        string newName = Console.ReadLine();
+        if (newName != null && newName != "")
+            objects[numb].Name = newName;
+        Console.WriteLine("\nВведите новое описание :");
+        string newDescription = Console.ReadLine();
+        if (newDescription != null && newDescription != "")
+            objects[numb].Description = newDescription;
+        Console.WriteLine($"\nВведите новый идентификационный номер, если номер не изменяется, введите текущий ({objects[numb].Id})");
+        objects[numb].Id = int.Parse(Console.ReadLine());
+        Console.WriteLine($"\nВведите новый идентификационный номер установки, к которой относится данный резервуар," +
+            $"\n если номер не изменяется, введите текущий ({objects[numb].UnitId})");
+        objects[numb].UnitId = int.Parse(Console.ReadLine());
+        Console.WriteLine($"\nВведите новый максимальный объем резервуара, если объем не изменяется, введите текущий ({objects[numb].MaxVolume})");
+        objects[numb].MaxVolume = int.Parse(Console.ReadLine());
+        Console.WriteLine($"\nВведите заполненность резервуара, если объем не изменился, введите текущий ({objects[numb].Volume})");
+        objects[numb].Volume = int.Parse(Console.ReadLine());
+        Console.WriteLine("\nДанные успешно обновлены!");
+    }
+
+    public static int JsonSearch(string path, string search)
+    {
+        int a = 0;
         var fb = new WebClient() { Encoding = Encoding.UTF8 }.DownloadString(path);
         var list = JsonSerializer.Deserialize<List<AllObjects>>(fb);
         foreach (var obj in list)
-            if (obj.Name == search || obj.Description == search)
-        // AllObjects result = list.Find(x => x.Name.ToString() == search);
-                    PrintInfo(obj, path);        
+            if (obj.Name == search)
+            {
+                a = list.IndexOf(obj);
+            }
+        return a;
+    }
+    public static int JsonSearchAndPrint(string path, string search)
+    {
+        int a = 0;
+        var fb = new WebClient() { Encoding = Encoding.UTF8 }.DownloadString(path);
+        var list = JsonSerializer.Deserialize<List<AllObjects>>(fb);
+        foreach (var obj in list)
+            if (obj.Name == search)
+            {
+                PrintInfo(obj, path);
+                a = list.IndexOf(obj);
+            }
+        return a;
     }
 
     public static void PrintInfo(AllObjects Object, string path)
@@ -155,72 +328,9 @@ class Program
             Console.Write($" утановленна на объекте {result.Name} - {result.Description}");
         }
     }
-
-    /* public static void FindInfo(Factory[] factories, Unit[] units, Tank[] tanks, string description)  // Поиск информации по описанию объекта //
-     {
-         for (int i = 0; i < factories.Length; i++)
-             if (factories[i].Description == description)
-             {
-                 Console.WriteLine($"По вашему запросу найден {factories[i].Name}, это {factories[i].Description}," +
-                     $"\n ID № {factories[i].Id}.");
-                 for (int j = 0; j < units.Length; j++)
-                 {
-                     int Volume = 0;
-                     int maxVolume = 0;
-                     if (units[j].FactoryId == factories[i].Id)
-                     {
-
-                         Console.WriteLine($"Оснащен установкой {units[j].Name} - {units[j].Description} cообщающейся с хранилищем: ");
-                         for (int k = 0; k < tanks.Length; k++)
-                             if (tanks[k].UnitId == units[j].Id)
-                             {
-                                 maxVolume += tanks[k].MaxVolume;
-                                 Volume += tanks[k].Volume;
-                                 Console.Write($"{tanks[k].Name}, типа установки {tanks[k].Description}, наполненностью в {tanks[k].Volume} кубических метров" +
-                                     $"\n и общим объемом в {tanks[k].MaxVolume} кубических метров \n");
-                             }
-                     }
-                     if (Volume != 0)
-                         Console.WriteLine($"Общая наполненность хранилищ - {Volume} кб.м., максимальный объем - {maxVolume} ");
-                 }
-             }
-         for (int i = 0; i < units.Length; i++)
-         {
-             int Volume = 0;
-             int maxVolume = 0;
-             if (units[i].Description == description)
-             {
-                 Console.WriteLine($"По вашему запросу найдена установка {units[i].Name} - {units[i].Description} cообщающаяся с хранилищем: ");
-                 for (int k = 0; k < tanks.Length; k++)
-                     if (tanks[k].UnitId == units[i].Id)
-                     {
-                         maxVolume += tanks[k].MaxVolume;
-                         Volume += tanks[k].Volume;
-                         Console.Write($"{tanks[k].Name}, типа установки {tanks[k].Description}, наполненностью в {tanks[k].Volume} кубических метров" +
-                             $"\n и общим объемом в {tanks[k].MaxVolume} кубических метров \n");
-                     }
-
-             }
-             if (Volume != 0)
-                 Console.WriteLine($"Общая наполненность хранилищ - {Volume} кб.м., максимальный объем - {maxVolume} ");
-         }
-
-         for (int i = 0; i < tanks.Length; i++)
-         {
-
-             if (tanks[i].Description == description)
-             {
-                 Console.WriteLine($"По вашему запросу найден {tanks[i].Name} типа установки {tanks[i].Description}" +
-                     $"\n наполненостью в {tanks[i].Volume}кб.м, и общим объемом в {tanks[i].MaxVolume} кб.м.");
-             }
-         }
-
-     } */
-    // реализуйте этот метод, чтобы он возвращал массив резервуаров, согласно приложенным таблицам
-    // можно использовать создание объектов прямо в C# коде через new, или читать из файла (на своё усмотрение)
-    public static AllObjects[] GetAllObjects()
+    public static List<AllObjects> GetAllObjects()
     {
-        AllObjects[] allObjects = new AllObjects[]
+        List<AllObjects> allObjects = new List<AllObjects>
         {
                 new AllObjects  {Description = "Надземный - вертикальный", Name = "Резервуар 1", MaxVolume = 2000, Volume = 1500, Id = 1, UnitId = 1},
                 new AllObjects  {Description = "Надземный - горизонтальный", Name = "Резервуар 2", MaxVolume = 3000, Volume = 2500, Id = 2, UnitId = 1 },
@@ -252,7 +362,7 @@ class Program
         };
         return tanks;
     }
-    // реализуйте этот метод, чтобы он возвращал массив установок, согласно приложенным таблицам
+
     public static Unit[] GetUnits()
     {
         Unit[] units = new Unit[]
@@ -263,8 +373,6 @@ class Program
         };
         return units;
     }
-
-    // реализуйте этот метод, чтобы он возвращал массив заводов, согласно приложенным таблицам
     public static Factory[] GetFactories()
     {
         Factory[] factories = new Factory[]
@@ -275,10 +383,6 @@ class Program
         return factories;
 
     }
-
-    // реализуйте этот метод, чтобы он возвращал установку (Unit), которой
-    // принадлежит резервуар (Tank), найденный в массиве резервуаров по имени
-    // учтите, что по заданному имени может быть не найден резервуар
     public static Unit FindUnit(Unit[] units, Tank[] tanks, string unitName)
     {
         var unitId = 0;
@@ -300,8 +404,6 @@ class Program
         }
         return units[unitId];
     }
-
-    // реализуйте этот метод, чтобы он возвращал объект завода, соответствующий установке
     public static Factory FindFactory(Factory[] factories, Unit unit)
     {
         var factoryId = 0;
@@ -312,8 +414,6 @@ class Program
         }
         return factories[factoryId];
     }
-
-    // реализуйте этот метод, чтобы он возвращал суммарный объем резервуаров в массиве
     public static int GetTotalVolume(Tank[] units)
     {
         var totalVolume = 0;
